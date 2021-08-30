@@ -549,6 +549,8 @@ public class CameraSource {
     }
 
     bytesToByteBuffer.put(byteArray, buffer);
+
+    
     return byteArray;
   }
 

@@ -1,4 +1,5 @@
 import 'package:flutter/services.dart';
+import 'package:flutter_mlkit_platform_channel/pose_model.dart';
 import 'package:logger/logger.dart';
 
 class ChannelHelper {
@@ -12,5 +13,26 @@ class ChannelHelper {
     if (res) {
       _logger.i("**** Native Activity Started ! ****");
     }
+  }
+
+  static Future<List<Pose>> startCameraStream(Map<String,dynamic> args) async {
+    final response = await _methodChannel.invokeMethod("startCameraStream",args);
+
+
+    List<Pose> poses = [];
+    for (final pose in response) {
+      Map<PoseLandmarkType, PoseLandmark> landmarks = {};
+      for (final point in pose) {
+        final landmark = PoseLandmark.fromMap(point);
+        landmarks[landmark.type] = landmark;
+      }
+      poses.add(Pose(landmarks));
+    }
+    return poses;
+
+  }
+
+  static Future<void> disposeDetector() async{
+    await _methodChannel.invokeMethod("disposeDetector");
   }
 }

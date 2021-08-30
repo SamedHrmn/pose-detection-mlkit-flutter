@@ -1,7 +1,22 @@
+import 'package:camera/camera.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_mlkit_platform_channel/channel_helper.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_mlkit_platform_channel/camera_view.dart';
 
-void main() => runApp(MyApp());
+List<CameraDescription>? cameras;
+
+main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  try {
+    cameras = await availableCameras();
+  } on CameraException catch (e) {
+    print('Error: $e.code\nError Message: $e.message');
+  }
+
+  SystemChrome.setEnabledSystemUIOverlays([SystemUiOverlay.bottom]);
+  runApp(MyApp());
+}
 
 class MyApp extends StatelessWidget {
   @override
@@ -27,7 +42,11 @@ class _HomeViewState extends State<HomeView> {
       body: Center(
         child: ElevatedButton(
           onPressed: () async {
-            await ChannelHelper.startAndroidPoseDetectionWithChannel();
+            await Navigator.of(context).push(CupertinoPageRoute(
+              builder: (context) => CameraView(
+                appCameras: cameras!,
+              ),
+            ));
           },
           child: Text("Start MLKit"),
         ),
