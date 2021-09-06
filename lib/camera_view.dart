@@ -32,7 +32,7 @@ class _CameraViewState extends State<CameraView> {
     } else {
       controller = CameraController(
         widget.appCameras[0],
-        ResolutionPreset.low,
+        ResolutionPreset.vga,
       );
       controller.initialize().then((_) {
         if (!mounted) {

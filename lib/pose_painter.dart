@@ -39,9 +39,9 @@ class PosePainter extends CustomPainter {
 
         // Yüz bölgesini hariç tutar.
         if(landmark.type.index > 10){
-          textPainter.text = TextSpan(text: landmark.likelihood.toStringAsFixed(2));
+          textPainter.text = TextSpan(text: landmark.likelihood.toStringAsFixed(2),style: TextStyle(fontSize: 9));
 
-          textPainter.layout(maxWidth: 10);
+          textPainter.layout(maxWidth: 15);
           textPainter.paint(
               canvas,
               Offset(
@@ -89,9 +89,13 @@ class PosePainter extends CustomPainter {
 
       //Draw legs
       paintLine(
-          PoseLandmarkType.leftHip, PoseLandmarkType.leftAnkle, leftPaint);
+          PoseLandmarkType.leftHip, PoseLandmarkType.leftKnee, leftPaint);
       paintLine(
-          PoseLandmarkType.rightHip, PoseLandmarkType.rightAnkle, rightPaint);
+          PoseLandmarkType.leftKnee, PoseLandmarkType.leftAnkle, leftPaint);
+      paintLine(
+          PoseLandmarkType.rightHip, PoseLandmarkType.rightKnee, rightPaint);
+      paintLine(
+          PoseLandmarkType.rightKnee, PoseLandmarkType.rightAnkle, rightPaint);
     });
   }
 
