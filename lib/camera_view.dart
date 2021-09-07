@@ -1,5 +1,3 @@
-import 'dart:typed_data';
-
 import 'package:camera/camera.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -7,34 +5,56 @@ import 'package:flutter_mlkit_platform_channel/channel_helper.dart';
 import 'package:flutter_mlkit_platform_channel/image_utils.dart';
 import 'package:flutter_mlkit_platform_channel/pose_painter.dart';
 
-Uint8List? byteList;
-
 class CameraView extends StatefulWidget {
-  CameraView({Key? key, required this.appCameras}) : super(key: key);
-
-  final List<CameraDescription> appCameras;
+  const CameraView({Key? key}) : super(key: key);
 
   @override
   _CameraViewState createState() => _CameraViewState();
 }
 
 class _CameraViewState extends State<CameraView> {
-  late CameraController controller;
-  bool isDetecting = false;
-  CustomPaint? customPaint;
+  CameraController? controller;
+  static bool isDetecting = false;
+  static CustomPaint? customPaint;
+  static late InputImage inputImage;
+  int? selectedCameraIdx;
+  List<CameraDescription>? cameras;
 
   @override
   void initState() {
     super.initState();
 
-    if (widget.appCameras.length < 1) {
-      print('No camera is found');
-    } else {
-      controller = CameraController(
-        widget.appCameras[0],
-        ResolutionPreset.vga,
-      );
-      controller.initialize().then((_) {
+    availableCameras().then((availableCameras) {
+      cameras = availableCameras;
+      if (cameras!.length > 0) {
+        setState(() {
+          selectedCameraIdx = 0;
+        });
+
+        _initCameraController(cameras![selectedCameraIdx!]).then((void v) {});
+      } else {
+        print("No camera available");
+      }
+    }).catchError((err) {
+      print('Error: $err.code\nError Message: $err.message');
+    });
+  }
+
+  Future _initCameraController(CameraDescription cameraDescription) async {
+    controller = CameraController(cameraDescription, ResolutionPreset.vga480);
+
+    controller!.addListener(() {
+      if (mounted) {
+        setState(() {});
+      }
+
+      if (controller!.value.hasError) {
+        print('Camera error ${controller!.value.errorDescription}');
+      }
+    });
+
+    try {
+      controller!.initialize().then((value) {
         if (!mounted) {
           return;
         }
@@ -42,16 +62,22 @@ class _CameraViewState extends State<CameraView> {
 
         detectPose();
       });
+    } on CameraException catch (e) {
+      print(e.description);
+    }
+
+    if (mounted) {
+      setState(() {});
     }
   }
 
-  /// TODO: Medium kamera ayari için bakılacak
   detectPose() {
-    controller.startImageStream((CameraImage img) async {
+    controller!.startImageStream((CameraImage img) async {
       if (!isDetecting) {
         isDetecting = true;
 
-        final InputImage inputImage = await _processCameraImage(img);
+        inputImage =
+            await _processCameraImage(img, cameras![selectedCameraIdx!]);
         final poses = await ChannelHelper.startCameraStream(
             {"imageData": inputImage.getImageData()});
 
@@ -69,6 +95,7 @@ class _CameraViewState extends State<CameraView> {
         }
 
         isDetecting = false;
+
         if (mounted) {
           setState(() {});
         }
@@ -76,20 +103,17 @@ class _CameraViewState extends State<CameraView> {
     });
   }
 
-  Future<InputImage> _processCameraImage(CameraImage image) async {
+  static Future<InputImage> _processCameraImage(
+      CameraImage image, CameraDescription description) async {
     final WriteBuffer allBytes = WriteBuffer();
     for (Plane plane in image.planes) {
       allBytes.putUint8List(plane.bytes);
     }
     final bytes = allBytes.done().buffer.asUint8List();
 
-    final imageRotation = InputImageRotationMethods.fromRawValue(
-            widget.appCameras.first.sensorOrientation) ??
-        InputImageRotation.Rotation_0deg;
-
-    final inputImageFormat =
-        InputImageFormatMethods.fromRawValue(image.format.raw) ??
-            InputImageFormat.NV21;
+    final imageRotation =
+        InputImageRotationMethods.fromRawValue(description.sensorOrientation) ??
+            InputImageRotation.Rotation_0deg;
 
     final planeData = image.planes.map(
       (Plane plane) {
@@ -105,7 +129,7 @@ class _CameraViewState extends State<CameraView> {
       imageWidth: image.width,
       imageHeight: image.height,
       imageRotation: imageRotation,
-      inputImageFormat: inputImageFormat,
+      inputImageFormat: InputImageFormat.NV21,
       planeData: planeData,
     );
 
@@ -117,28 +141,85 @@ class _CameraViewState extends State<CameraView> {
 
   @override
   void dispose() {
-    controller.dispose();
+    controller?.dispose();
     ChannelHelper.disposeDetector();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    if (controller.value.isInitialized == false) {
+    if (controller == null || !controller!.value.isInitialized) {
       return Container();
     }
-    return Container(
-      color: Colors.black,
-      child: RepaintBoundary(
-        // Paint için isolate.
-        child: Stack(
-          fit: StackFit.expand,
-          children: <Widget>[
-            CameraPreview(controller),
-            if (customPaint != null) customPaint!,
-          ],
-        ),
+    return Scaffold(
+      body: Stack(
+        fit: StackFit.expand,
+        children: <Widget>[
+          _cameraPreviewWidget(),
+          _painter(),
+          Positioned(
+            right: 0,
+            bottom: 0,
+            height: 50,
+            child: _cameraToggleButton(),
+          ),
+        ],
       ),
     );
+  }
+
+  Widget _cameraPreviewWidget() {
+    if (controller == null || !controller!.value.isInitialized) {
+      return const Text(
+        'Loading',
+        style: TextStyle(
+          color: Colors.white,
+          fontSize: 20.0,
+          fontWeight: FontWeight.w900,
+        ),
+      );
+    }
+
+    return CameraPreview(controller!);
+  }
+
+  Widget _painter() {
+    return customPaint != null
+        ? RepaintBoundary(child: customPaint)
+        : SizedBox();
+  }
+
+  Widget _cameraToggleButton() {
+    if (cameras == null || cameras!.isEmpty) {
+      return Spacer();
+    }
+
+    CameraDescription selectedCamera = cameras![selectedCameraIdx!];
+    CameraLensDirection lensDirection = selectedCamera.lensDirection;
+
+    return FloatingActionButton(
+      onPressed: _onSwitchCamera,
+      child: Icon(_getCameraLensIcon(lensDirection)),
+    );
+  }
+
+  IconData _getCameraLensIcon(CameraLensDirection direction) {
+    switch (direction) {
+      case CameraLensDirection.back:
+        return Icons.camera_rear;
+      case CameraLensDirection.front:
+        return Icons.camera_front;
+      case CameraLensDirection.external:
+        return Icons.camera;
+      default:
+        return Icons.device_unknown;
+    }
+  }
+
+  void _onSwitchCamera() {
+    selectedCameraIdx =
+        selectedCameraIdx! < cameras!.length - 1 ? selectedCameraIdx! + 1 : 0;
+    CameraDescription selectedCamera = cameras![selectedCameraIdx!];
+    _initCameraController(selectedCamera);
   }
 }

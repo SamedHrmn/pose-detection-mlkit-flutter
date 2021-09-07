@@ -12,10 +12,8 @@ class PosePainter extends CustomPainter {
   final List<Pose> poses;
   final Size absoluteImageSize;
   final InputImageRotation rotation;
-   final TextPainter textPainter = TextPainter(
-      textDirection: TextDirection.ltr,
-      textAlign: TextAlign.center
-  );
+  final TextPainter textPainter = TextPainter(
+      textDirection: TextDirection.ltr, textAlign: TextAlign.center);
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -36,10 +34,11 @@ class PosePainter extends CustomPainter {
 
     poses.forEach((pose) {
       pose.landmarks.forEach((_, landmark) {
-
         // Yüz bölgesini hariç tutar.
-        if(landmark.type.index > 10){
-          textPainter.text = TextSpan(text: landmark.likelihood.toStringAsFixed(2),style: TextStyle(fontSize: 9));
+        if (landmark.type.index > 10) {
+          textPainter.text = TextSpan(
+              text: landmark.likelihood.toStringAsFixed(2),
+              style: TextStyle(fontSize: 9));
 
           textPainter.layout(maxWidth: 15);
           textPainter.paint(
@@ -59,10 +58,10 @@ class PosePainter extends CustomPainter {
             paint);
       });
 
-      void paintLine(
-          PoseLandmarkType type1, PoseLandmarkType type2, Paint paintType) {
+      void paintLine(PoseLandmarkType type1, PoseLandmarkType type2, Paint paintType) {
         PoseLandmark joint1 = pose.landmarks[type1]!;
         PoseLandmark joint2 = pose.landmarks[type2]!;
+
         canvas.drawLine(
             Offset(translateX(joint1.x, rotation, size, absoluteImageSize),
                 translateY(joint1.y, rotation, size, absoluteImageSize)),
@@ -88,8 +87,7 @@ class PosePainter extends CustomPainter {
           rightPaint);
 
       //Draw legs
-      paintLine(
-          PoseLandmarkType.leftHip, PoseLandmarkType.leftKnee, leftPaint);
+      paintLine(PoseLandmarkType.leftHip, PoseLandmarkType.leftKnee, leftPaint);
       paintLine(
           PoseLandmarkType.leftKnee, PoseLandmarkType.leftAnkle, leftPaint);
       paintLine(
@@ -101,12 +99,12 @@ class PosePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant PosePainter oldDelegate) {
-    return oldDelegate.absoluteImageSize != absoluteImageSize ||
-        oldDelegate.poses != poses;
+    return oldDelegate.poses != poses;
   }
 
   double translateX(double x, InputImageRotation rotation, Size size,
       Size absoluteImageSize) {
+
     switch (rotation) {
       case InputImageRotation.Rotation_90deg:
         return x *
@@ -124,10 +122,12 @@ class PosePainter extends CustomPainter {
       default:
         return x * size.width / absoluteImageSize.width;
     }
+
   }
 
   double translateY(double y, InputImageRotation rotation, Size size,
       Size absoluteImageSize) {
+
     switch (rotation) {
       case InputImageRotation.Rotation_90deg:
       case InputImageRotation.Rotation_270deg:
